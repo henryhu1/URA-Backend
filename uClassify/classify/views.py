@@ -2,10 +2,9 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image
 from zipfile import ZipFile
 from classify.forms import UploadAndTrainForm
-from classify.image_classifier import ImageClassifier
+from classify.static_image_classifier import StaticImageClassifier
 from classify.tasks import train_model
 
 @csrf_exempt
@@ -18,10 +17,7 @@ def single(request):
   if image_file is None:
     return JsonResponse({"error": "Please provide image file"})
 
-  image = Image.open(image_file)
-  image = image.resize((224, 224))
-  classifier = ImageClassifier()
-  result = classifier.classify_image(image)
+  result = StaticImageClassifier.classify_image(image_file)
   return JsonResponse(result, safe=False)
 
 @csrf_exempt
