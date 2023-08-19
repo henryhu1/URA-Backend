@@ -14,7 +14,7 @@ class ImageClassifier:
         id2label={str(i): c for i, c in enumerate(labels)},
         label2id={c: str(i) for i, c in enumerate(labels)}
       )
-
+    self.labels = labels
     self.tokenizer = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
 
   def collate_fn(batch):
@@ -44,15 +44,15 @@ class ImageClassifier:
     load_best_model_at_end=True,
   )
 
-  def getTrainer(dataset):
+  def getTrainer(self, dataset):
     return Trainer(
-      model=model,
-      args=training_args,
-      data_collator=collate_fn,
-      compute_metrics=compute_metrics,
+      model=self.model,
+      args=self.training_args,
+      data_collator=self.collate_fn,
+      compute_metrics=self.compute_metrics,
       train_dataset=dataset["train"],
-      eval_dataset=dataset["validation"],
-      tokenizer=tokenizer,
+      eval_dataset=dataset["test"],
+      tokenizer=self.tokenizer,
     )
 
   def classify_image(self, image):

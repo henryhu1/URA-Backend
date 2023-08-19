@@ -3,9 +3,10 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image
-from datasets import load_dataset
 from zipfile import ZipFile
-from .image_classifier import ImageClassifier
+from classify.forms import UploadAndTrainForm
+from classify.image_classifier import ImageClassifier
+from classify.tasks import train_model
 
 @csrf_exempt
 def single(request):
@@ -29,44 +30,32 @@ def upload_and_train(request):
     # TODO string constant
     return JsonResponse({"error": ""})
 
-  dataset_zip = request.FILES.get('dataset')
+  form = UploadAndTrainForm(request.POST)
+  if not form.is_valid():
+    # TODO string constant
+    return JsonResponse({"error": ""})
+
+  training_size = form.cleaned_data["training_size"]
+  dataset_zip = request.FILES.get("dataset")
   if dataset_zip is None:
     return
 
-  path_to_file = dataset_zip.name
-  default_storage.save(path_to_file, dataset_zip)
+  zip_name = dataset_zip.name
+  default_storage.save(zip_name, dataset_zip)
 
-  with ZipFile('{}/{}'.format(settings.MEDIA_ROOT, path_to_file)) as zObject:
-    zObject.extractall(settings.MEDIA_ROOT)
-  
+  path_to_zip = '{}/{}'.format(settings.MEDIA_ROOT, zip_name)
+  path_to_dataset = '{}/{}'.format(settings.MEDIA_ROOT, zip_name.split(".")[0])
+  with ZipFile(path_to_zip) as zObject:
+    zObject.extractall(path_to_dataset)
+ 
+  training_results = train_model(path_to_dataset, training_size)
 
-  ds = load_dataset('./train_and_validate/')
-  labels = ds['train'].features['label'].names
+  # trainer.log_metrics("train", train_results.metrics)
+  # trainer.save_metrics("train", train_results.metrics)
+  # trainer.save_state()
+  # metrics = trainer.evaluate(prepared_ds['validation'])
+  # trainer.log_metrics("eval", metrics)
+  # trainer.save_metrics("eval", metrics)
+  # trainer.save_model("./vision-transformer-saved")
 
-  classifier = ImageClassifier()
-  def transform(example_batch):
-    # Take a list of PIL images and turn them to pixel values
-    inputs = classifier.tokenizer([x for x in example_batch['image']], return_tensors='pt')
-
-    # Don't forget to include the labels!
-    inputs['label'] = example_batch['label']
-    return inputs
-
-  prepared_ds = ds.with_transform(transform)
-
-  trainer = classifier.getTrainer
-  train_results = trainer.train()
-  trainer.save_model()
-  trainer.log_metrics("train", train_results.metrics)
-  trainer.save_metrics("train", train_results.metrics)
-  trainer.save_state()
-
-  metrics = trainer.evaluate(prepared_ds['validation'])
-  trainer.log_metrics("eval", metrics)
-  trainer.save_metrics("eval", metrics)
-
-  metrics = trainer.evaluate(prepared_ds['validation'])
-
-  trainer.save_model("./vision-transformer-saved")
-
-  return JsonResponse(path_to_file, safe=False)
+  return JsonResponse(zip_name, safe=False)

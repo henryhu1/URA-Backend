@@ -31,12 +31,14 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'classify.apps.ClassifyConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 'django_celery_results',
 ]
 
 MIDDLEWARE = [
@@ -131,6 +133,9 @@ MEDIA_ROOT = BASE_DIR / 'uploads'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery Configuration Options
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 CELERY_TIMEZONE = "Canada/Eastern"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+# CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_CACHE_BACKEND = 'django-cache'
