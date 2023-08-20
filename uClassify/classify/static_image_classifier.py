@@ -1,6 +1,5 @@
 from transformers import ViTForImageClassification, ViTImageProcessor
 from django.conf import settings
-from PIL import Image
 import os
 
 class StaticImageClassifier:
@@ -21,21 +20,8 @@ class StaticImageClassifier:
   @classmethod
   def get_tokenizer(self):
     if not os.path.exists(self.tokenizer_path):
-      tokenizer = ViTForImageClassification.from_pretrained("google/vit-base-patch16-224-in21k", cache_dir=settings.MODEL_CACHE_DIR)
+      tokenizer = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k", cache_dir=settings.MODEL_CACHE_DIR)
       tokenizer.save_pretrained(self.tokenizer_path)
     else:
-      tokenizer = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
+      tokenizer = ViTImageProcessor.from_pretrained(self.tokenizer_path)
     return tokenizer
-
-  @classmethod
-  def classify_image(self, image_file):
-    model = self.get_model()
-    tokenizer = self.get_tokenizer()
-
-    image = Image.open(image_file)
-    image = image.resize((224, 224))
-    input = tokenizer(image, return_tensors="pt")
-    output = model(**input)
-    logits = output.logits
-    prediction = logits.argmax(1).item()
-    return model.config.id2label[prediction]

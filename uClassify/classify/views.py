@@ -4,27 +4,28 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from zipfile import ZipFile
 from classify.forms import UploadAndTrainForm
-from classify.static_image_classifier import StaticImageClassifier
+from classify.models import CustomUser, CustomizedImageClassificationModel
 from classify.tasks import train_model
+from classify.utils.image_classifying import classify_image
 
 @csrf_exempt
 def single(request):
   if request.method != "POST":
     # TODO string constant
-    return JsonResponse({"error": "Please provide image file"})
+    return JsonResponse({"error": "Only POST calls accepted"})
 
   image_file = request.FILES.get('image')
   if image_file is None:
     return JsonResponse({"error": "Please provide image file"})
 
-  result = StaticImageClassifier.classify_image(image_file)
+  result = classify_image(image_file)
   return JsonResponse(result, safe=False)
 
 @csrf_exempt
 def upload_and_train(request):
   if request.method != "POST":
     # TODO string constant
-    return JsonResponse({"error": ""})
+    return JsonResponse({"error": "Only POST calls accepted"})
 
   form = UploadAndTrainForm(request.POST)
   if not form.is_valid():
@@ -55,3 +56,22 @@ def upload_and_train(request):
   # trainer.save_model("./vision-transformer-saved")
 
   return JsonResponse(zip_name, safe=False)
+
+@csrf_exempt
+def customized_classifier(request):
+  if request.method != "POST":
+    # TODO string constant
+    return JsonResponse({"error": "Only POST calls accepted"})
+
+  image_file = request.FILES.get('image')
+  if image_file is None:
+    return JsonResponse({"error": "Please provide image file"})
+
+  #TODO make it session user
+  user = CustomUser.objects.get(pk=1)
+  customized_classifier = CustomizedImageClassificationModel.objects.get(owner=user)
+  print(user)
+  print(customized_classifier)
+
+  result = classify_image(image_file, customized_classifier.model_path)
+  return JsonResponse(result, safe=False)

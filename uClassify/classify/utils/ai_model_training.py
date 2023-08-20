@@ -1,9 +1,10 @@
 import torch
 import numpy as np
 from datasets import load_dataset, load_metric
-from transformers import ViTImageProcessor, ViTForImageClassification, TrainingArguments, Trainer
+from transformers import ViTForImageClassification, TrainingArguments, Trainer
+from classify.static_image_classifier import StaticImageClassifier
 
-TOKENIZER = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+TOKENIZER = StaticImageClassifier.get_tokenizer()
 
 def transform(example_batch):
   # Take a list of PIL images and turn them to pixel values
