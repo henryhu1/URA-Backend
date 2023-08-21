@@ -1,8 +1,11 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin
-from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.db import models
 import dns.resolver
+import random
 
 class CustomUserManager(BaseUserManager):
   def validate_email_domain(self, email):
@@ -35,6 +38,20 @@ class CustomUserManager(BaseUserManager):
     user = self.model(email=email, **extra_fields)
     user.set_password(password)
     user.save(using=self._db)
+
+    code = ''.join(random.choices('0123456789', k=6))
+
+    # Create and save verification code
+    EmailVerification.objects.create(user=user, verification_code=code)
+
+    # Send email with the verification code
+    send_mail(
+      subject='Email Verification',
+      message=f'Your verification code is: {code}',
+      from_email=settings.EMAIL_HOST_USER,
+      recipient_list=[user.email],
+      fail_silently=False
+    )
     return user
 
   def create_superuser(self, email, password=None, **extra_fields):
@@ -43,10 +60,8 @@ class CustomUserManager(BaseUserManager):
 
     return self.create_user(email, password, **extra_fields)
 
-class CustomUser(AbstractUser, PermissionsMixin):
+class CustomUser(AbstractUser):
   email = models.EmailField(unique=True)
-  first_name = models.CharField(max_length=30, blank=True)
-  last_name = models.CharField(max_length=30, blank=True)
   date_joined = models.DateTimeField(auto_now_add=True)
   is_active = models.BooleanField(default=True)
   is_staff = models.BooleanField(default=False)
@@ -63,3 +78,8 @@ class CustomizedImageClassificationModel(models.Model):
   owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
   dataset_path = models.FileField(upload_to='uploads/')
   model_path = models.FileField(upload_to='models/')
+
+class EmailVerification(models.Model):
+  user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+  verification_code = models.CharField(max_length=6)
+  is_verified = models.BooleanField(default=False)

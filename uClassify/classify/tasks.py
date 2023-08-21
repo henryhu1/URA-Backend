@@ -1,6 +1,17 @@
 from celery import shared_task
 from django.conf import settings
+from django.core.mail import send_mail
 from classify.utils.ai_model_training import get_pretrained_model, get_dataset, get_trainer
+
+@shared_task
+def send_verification_email(user_email, code):
+  send_mail(
+    subject='Email Verification',
+    message=f'Your verification code is: {code}',
+    from_email=settings.EMAIL_HOST_USER,
+    recipient_list=[user_email],
+    fail_silently=False
+  )
 
 def prepare_dataset(path_to_dataset, training_size):
   dataset_split = 0.1 if training_size is None else training_size
