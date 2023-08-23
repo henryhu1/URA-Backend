@@ -15,6 +15,11 @@ dnspython = "*"
 boto3 = "*"
 django-storages = "*"
 django-environ = "*"
+djangorestframework = "*"
+djangorestframework-simplejwt = "*"
+django-celery-results = "*"
+tensorflow = "*"
+tensorflow-hub = "*"
 
 [dev-packages]
 

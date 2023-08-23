@@ -3,7 +3,6 @@ from transformers import ViTForImageClassification
 from classify.static_image_classifier import StaticImageClassifier
 
 def classify_image(image_file, classifier_path=None):
-  print(classifier_path)
   if not classifier_path:
     classifier_model = StaticImageClassifier.get_model()
   else:

@@ -24,13 +24,12 @@ class CustomUserManager(BaseUserManager):
     if not email:
       raise ValueError('The Email field must be set')
 
-    # Basic email format validation
+    #TODO encapsulate verification email
     try:
       validate_email(email)
     except ValidationError:
       raise ValueError('Invalid email format')
 
-    # Check if the email domain has MX records
     if not self.validate_email_domain(email):
       raise ValueError('The email domain does not have valid MX records')
 
@@ -39,19 +38,20 @@ class CustomUserManager(BaseUserManager):
     user.set_password(password)
     user.save(using=self._db)
 
-    code = ''.join(random.choices('0123456789', k=6))
+    if not settings.DEBUG:
+      code = ''.join(random.choices('0123456789', k=6))
+      EmailVerification.objects.create(user=user, verification_code=code)
 
-    # Create and save verification code
-    EmailVerification.objects.create(user=user, verification_code=code)
+      send_mail(
+        subject='Email Verification',
+        message=f'Your verification code is: {code}',
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[user.email],
+        fail_silently=False
+      )
+    else:
+      EmailVerification.objects.create(user=user, is_verified=True)
 
-    # Send email with the verification code
-    send_mail(
-      subject='Email Verification',
-      message=f'Your verification code is: {code}',
-      from_email=settings.EMAIL_HOST_USER,
-      recipient_list=[user.email],
-      fail_silently=False
-    )
     return user
 
   def create_superuser(self, email, password=None, **extra_fields):
@@ -76,8 +76,16 @@ class CustomUser(AbstractUser):
 
 class CustomizedImageClassificationModel(models.Model):
   owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-  dataset_path = models.FileField(upload_to='uploads/')
-  model_path = models.FileField(upload_to='models/')
+  model_path = models.FileField(null=True)
+
+  def path_to_dataset(self):
+    return '{}/{}/{}'.format(settings.MEDIA_ROOT, self.owner.id, "dataset")
+
+class TrainingModelTask(models.Model):
+  owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+  model = models.ForeignKey(CustomizedImageClassificationModel, on_delete=models.CASCADE)
+  task_id = models.TextField(null=False, primary_key=True)
+  is_done = models.BooleanField(default=False)
 
 class EmailVerification(models.Model):
   user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)

@@ -12,7 +12,7 @@ class UploadAndTrainForm(forms.Form):
 class RegistrationForm(forms.ModelForm):
   class Meta:
     model = CustomUser
-    fields = ['email', 'password']
+    fields = ['email', 'username', 'password']
 
 class VerifyEmailForm(forms.Form):
   code = forms.CharField(max_length=6)
