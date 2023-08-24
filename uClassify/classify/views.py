@@ -4,12 +4,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import login, logout
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+import os
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from zipfile import ZipFile
+import zipstream
 from classify.constants import CommonStrings, ErrorMessages
 from classify.forms import UploadAndTrainForm, RegistrationForm, VerifyEmailForm
 from classify.models import CustomUser, CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
@@ -271,5 +273,38 @@ def delete_custom_model(request: HttpRequest) -> JsonResponse:
   if has_customized_model.exists():
     has_customized_model.first().delete()
     return JsonResponse({"status": CommonStrings.SUCCESS})
+  else:
+    return JsonResponse({"error": ErrorMessages.NOT_FOUND}, status=404)
+
+@login_required
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def download_custom_model(request: HttpRequest) -> JsonResponse:
+  if request.method != "GET":
+    return JsonResponse({"error": ErrorMessages.ONLY_GET}, status=405)
+
+  requesting_user = request.user
+  if not requesting_user.is_authenticated:
+    return JsonResponse({"error": ErrorMessages.UNAUTHORIZED_ACCESS}, status=401)
+
+  has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
+  if has_customized_model.exists():
+    model_to_download = has_customized_model.first()
+    path_to_model = model_to_download.model_path.path
+
+    z = zipstream.ZipFile(mode='w', compression=zipstream.ZIP_DEFLATED)
+    for root, dirs, files in os.walk(path_to_model):
+      for file in files:
+        file_path = os.path.join(root, file)
+        z.write(file_path, arcname=os.path.relpath(file_path, path_to_model))
+
+    response = StreamingHttpResponse(
+      (chunk for chunk in z),
+      content_type='application/zip'
+    )
+    response['Content-Disposition'] = 'attachment; filename=model.zip'
+
+    return response
   else:
     return JsonResponse({"error": ErrorMessages.NOT_FOUND}, status=404)
