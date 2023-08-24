@@ -1,4 +1,5 @@
 from celery.result import AsyncResult
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import AnonymousUser
@@ -12,7 +13,7 @@ from zipfile import ZipFile
 from classify.constants import CommonStrings, ErrorMessages
 from classify.forms import UploadAndTrainForm, RegistrationForm, VerifyEmailForm
 from classify.models import CustomUser, CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
-from classify.tasks import train_model
+from classify.tasks import handle_model_training, handle_email_verification
 from classify.utils.image_classifying import classify_image
 from classify.utils.jwt_utils import create_access_token, create_refresh_token
 
@@ -35,6 +36,8 @@ def register_user(request: HttpRequest) -> JsonResponse:
 
     try:
       user = CustomUser.objects.create_user(email=email, username=username, password=password)
+      if not settings.DEBUG:
+        handle_email_verification(user)
       login(request, user)
     except Exception:
       return JsonResponse({"error": ErrorMessages.CREATE_ACCOUNT_FAIL}, status=500)
@@ -138,14 +141,19 @@ def my_account(request: HttpRequest) -> JsonResponse:
 
   requesting_user = request.user
   if requesting_user.is_authenticated:
+    returning_json = {}
     try:
       email_ver = EmailVerification.objects.get(user=requesting_user)
       is_verified = email_ver.is_verified
-      # if not is_verified:
-      return JsonResponse({"is_verified": is_verified})
+      returning_json["is_verified"] = is_verified
       
-      # custom_classifier = CustomizedImageClassificationModel.objects.get(owner=requesting_user)
-      # return JsonResponse({"is_verified": is_verified})
+      has_task = TrainingModelTask.objects.filter(owner=requesting_user)
+      if has_task.exists():
+        returning_json["running_task"] = not AsyncResult(has_task.first().task_id).ready()
+
+      has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
+      returning_json["existing_model"] = has_customized_model.exists()
+      return JsonResponse(returning_json)
     except EmailVerification.DoesNotExist:
       return JsonResponse({"error": "Email verification record not found"}, status=404)
     # except CustomizedImageClassificationModel.DoesNotExist:
@@ -192,13 +200,14 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   if not requesting_user.is_authenticated:
     return JsonResponse({"error": ErrorMessages.UNAUTHORIZED_ACCESS}, status=401)
 
+  has_task = TrainingModelTask.objects.filter(owner=requesting_user)
+  if has_task.exists() and not AsyncResult(has_task.first().task_id).ready():
+    return JsonResponse({"error": "You have a model in training."}, status=400)
+
   has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
   if has_customized_model.exists():
     return JsonResponse({"error": "You already have a customized model."}, status=400)
 
-  has_task = TrainingModelTask.objects.filter(owner=requesting_user)
-  if has_task.exists() and not AsyncResult(has_task.first().task_id).ready():
-    return JsonResponse({"error": "You already have a customized model"}, status=400)
 
   form = UploadAndTrainForm(request.POST)
   if not form.is_valid():
@@ -221,7 +230,7 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
     # zObject.extractall(path_to_dataset)
     zObject.extractall(new_model.path_to_dataset())
  
-  train_model(requesting_user, new_model, training_size)
+  handle_model_training(requesting_user, new_model, training_size)
   # task_id = training_task_celery.task_id
 
   # training_task = TrainingModelTask.objects.create(owner=requesting_user, model=new_model, task_id=task_id)
