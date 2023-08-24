@@ -185,7 +185,7 @@ def single(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"error": ErrorMessages.PROVIDE_IMAGE})
 
   result = classify_image(image_file)
-  return JsonResponse(result, safe=False)
+  return JsonResponse(result)
 
 @login_required
 @api_view(['POST'])
@@ -207,7 +207,6 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
   if has_customized_model.exists():
     return JsonResponse({"error": "You already have a customized model."}, status=400)
-
 
   form = UploadAndTrainForm(request.POST)
   if not form.is_valid():
@@ -236,7 +235,7 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   # training_task = TrainingModelTask.objects.create(owner=requesting_user, model=new_model, task_id=task_id)
   # training_task.save()
 
-  return JsonResponse(new_model.path_to_dataset(), safe=False)
+  return JsonResponse({"status": CommonStrings.SUCCESS})
 
 @login_required
 @api_view(['POST'])
@@ -254,4 +253,23 @@ def customized_classifier(request: HttpRequest) -> JsonResponse:
   customized_classifier = CustomizedImageClassificationModel.objects.get(owner=requesting_user)
 
   result = classify_image(image_file, customized_classifier.model_path)
-  return JsonResponse(result, safe=False)
+  return JsonResponse(result)
+
+@login_required
+@api_view(['DELETE'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_custom_model(request: HttpRequest) -> JsonResponse:
+  if request.method != "DELETE":
+    return JsonResponse({"error": ErrorMessages.ONLY_DELETE}, status=405)
+
+  requesting_user = request.user
+  if not requesting_user.is_authenticated:
+    return JsonResponse({"error": ErrorMessages.UNAUTHORIZED_ACCESS}, status=401)
+
+  has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
+  if has_customized_model.exists():
+    has_customized_model.first().delete()
+    return JsonResponse({"status": CommonStrings.SUCCESS})
+  else:
+    return JsonResponse({"error": ErrorMessages.NOT_FOUND}, status=404)

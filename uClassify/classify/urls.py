@@ -5,6 +5,7 @@ urlpatterns = [
     path("", views.single, name="single"),
     path("upload_and_train/", views.upload_and_train, name="upload_and_train"),
     path("customized_classifier/", views.customized_classifier, name="customized_classifier"),
+    path("delete_custom_model/", views.delete_custom_model, name="delete_custom_model"),
     path("register_user/", views.register_user, name="register_user"),
     path("resend_email_verification/", views.resend_email_verification, name="resend_email_verification"),
     path("verify_email/", views.verify_email, name="verify_email"),
