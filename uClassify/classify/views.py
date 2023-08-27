@@ -212,15 +212,19 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   if not form.is_valid():
     return JsonResponse({"error": ErrorMessages.INVALID_FORM}, status=400)
 
-  training_size = form.cleaned_data["training_size"]
+  training_size = form.cleaned_data['training_size']
+  model_type = form.cleaned_data['model_type']
   dataset_zip = request.FILES.get("dataset")
   if dataset_zip is None:
-    return
+    return JsonResponse({"error": "Please provide a folder with labelled images."}, status=400)
+
+  if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
+    return JsonResponse({"error": "Vision Transformers are currently unavailable."}, status=400)
 
   # print(dataset_zip.name)
   # print("".join(dataset_zip.name.split(".").pop()))
   # default_storage.save(zip_name, dataset_zip)
-  new_model = CustomizedImageClassificationModel.objects.create(owner=requesting_user)
+  new_model = CustomizedImageClassificationModel.objects.create(owner=requesting_user, model_type=model_type)
   new_model.save()
 
   # path_to_zip = '{}/{}'.format(settings.MEDIA_ROOT, zip_name)
@@ -250,10 +254,23 @@ def customized_classifier(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"error": ErrorMessages.PROVIDE_IMAGE})
 
   requesting_user = request.user
-  customized_classifier = CustomizedImageClassificationModel.objects.get(owner=requesting_user)
 
-  result = classify_image(image_file, customized_classifier.model_path)
-  return JsonResponse(result)
+  has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
+  if not has_customized_model.exists():
+    return JsonResponse({"error": "You do not have a customized model."}, status=404)
+
+  has_task = TrainingModelTask.objects.filter(owner=requesting_user)
+  if has_task.exists() and not AsyncResult(has_task.first().task_id).ready():
+    return JsonResponse({"error": "You currently have a model in training."}, status=400)
+
+  customized_classifier = has_customized_model.first()
+  result = classify_image(
+    image_file,
+    customized_classifier.model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER,
+    customized_classifier.model_path,
+    customized_classifier.path_to_dataset()
+  )
+  return JsonResponse({"prediction": result})
 
 @login_required
 @api_view(['DELETE'])
@@ -268,8 +285,11 @@ def delete_custom_model(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"error": ErrorMessages.UNAUTHORIZED_ACCESS}, status=401)
 
   has_customized_model = CustomizedImageClassificationModel.objects.filter(owner=requesting_user)
-  if has_customized_model.exists():
+  has_task = TrainingModelTask.objects.filter(owner=requesting_user)
+  if has_task.exists() and not AsyncResult(has_task.first().task_id).ready():
+    return JsonResponse({"error": "Your model is training. You can delete the model once it has finished training."}, status=400)
+  elif not has_customized_model.exists():
+    return JsonResponse({"error": ErrorMessages.NOT_FOUND}, status=404)
+  else:
     has_customized_model.first().delete()
     return JsonResponse({"status": CommonStrings.SUCCESS})
-  else:
-    return JsonResponse({"error": ErrorMessages.NOT_FOUND}, status=404)

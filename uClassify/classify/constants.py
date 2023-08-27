@@ -3,6 +3,7 @@ class ErrorMessages:
   INCORRECT_VERIFICATION_CODE = "Incorrect code."
   INVALID_FORM = "Invalid form."
   PROVIDE_IMAGE = "Please provide image file."
+  NOT_FOUND = "Not found."
   ONLY_DELETE = "Only DELETE calls accepted."
   ONLY_GET = "Only GET calls accepted."
   ONLY_POST = "Only POST calls accepted."

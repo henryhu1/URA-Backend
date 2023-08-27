@@ -33,18 +33,19 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 PRODUCTION = env('PRODUCTION')
 
 if PRODUCTION:
-    # AWS settings for production
-    AWS_ACCESS_KEY_ID = 'YOUR_ACCESS_KEY'
-    AWS_SECRET_ACCESS_KEY = 'YOUR_SECRET_KEY'
-    AWS_STORAGE_BUCKET_NAME = 'YOUR_BUCKET_NAME'
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
+    AWS_S3_REGION_NAME = 'us-east-2'
     AWS_DEFAULT_ACL = 'public-read'
-    AWS_LOCATION = 'static'
+    AWS_QUERYSTRING_AUTH = False
+    AWS_LOCATION = 'staticfiles'
 
     STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles/')
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, 'staticfiles/')]
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 else:
@@ -82,6 +83,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_celery_results',
+    'storages',
 ]
 
 MIDDLEWARE = [

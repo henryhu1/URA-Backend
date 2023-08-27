@@ -1,5 +1,5 @@
 from django import forms
-from classify.models import CustomUser
+from classify.models import CustomUser, CustomizedImageClassificationModel
 
 class UploadAndTrainForm(forms.Form):
   training_size = forms.FloatField(
@@ -7,6 +7,10 @@ class UploadAndTrainForm(forms.Form):
     max_value=1.0,
     min_value=0.0,
     required=False
+  )
+  model_type = forms.ChoiceField(
+    label="model_type",
+    choices=CustomizedImageClassificationModel.CLASSIFICATION_MODEL_CHOICES
   )
 
 class RegistrationForm(forms.ModelForm):

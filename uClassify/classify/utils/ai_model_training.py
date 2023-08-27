@@ -1,10 +1,17 @@
 import torch
 import numpy as np
 from datasets import load_dataset, load_metric
+from tensorflow import keras, data
+from tensorflow_hub import KerasLayer
 from transformers import ViTForImageClassification, TrainingArguments, Trainer
 from classify.static_image_classifier import StaticImageClassifier
 
 TOKENIZER = StaticImageClassifier.get_tokenizer()
+BATCH_SIZE = 32
+IMG_HEIGHT = 224
+IMG_WIDTH = 224
+NORMALIZATION = keras.layers.Rescaling(1./255)
+AUTOTUNE = data.AUTOTUNE
 
 def transform(example_batch):
   # Take a list of PIL images and turn them to pixel values
@@ -27,6 +34,22 @@ def compute_metrics(p):
 def get_dataset(path_to_dataset, dataset_split):
   ds = load_dataset(path_to_dataset, split="train").train_test_split(test_size=dataset_split)
   return ds.with_transform(transform)
+
+def get_training_and_validation_datasets(path_to_dataset, dataset_split):
+  ds = keras.utils.image_dataset_from_directory(
+    path_to_dataset,
+    validation_split=dataset_split,
+    subset="both",
+    seed=123,
+    image_size=(IMG_HEIGHT, IMG_WIDTH),
+    batch_size=BATCH_SIZE,
+  )
+  #TODO normalization util
+  ds[0] = ds[0].map(lambda x, y: (NORMALIZATION(x), y))
+  ds[1] = ds[1].map(lambda x, y: (NORMALIZATION(x), y))
+  # train_ds = train_ds.cache().prefetech(buffer_size=AUTOTUNE)
+  # val_ds = val_ds.cache().prefetech(buffer_size=AUTOTUNE)
+  return ds
 
 def get_pretrained_model(labels):
   return ViTForImageClassification.from_pretrained(
@@ -65,3 +88,21 @@ def get_trainer(model, ds):
     eval_dataset=ds["test"],
     tokenizer=TOKENIZER,
   )
+
+def get_hub_model(tensorflow_hub_url, num_classes):
+  feature_extractor_layer = KerasLayer(
+    tensorflow_hub_url,
+    input_shape=(224, 224, 3),
+    trainable=False
+  )
+  model = keras.Sequential([
+    feature_extractor_layer,
+    keras.layers.Dense(num_classes)
+  ])
+  model.compile(
+    optimizer=keras.optimizers.Adam(),
+    loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=['accuracy'],
+  )
+
+  return model

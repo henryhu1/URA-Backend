@@ -18,7 +18,31 @@ class CustomUser(AbstractUser):
     return self.email
 
 class CustomizedImageClassificationModel(models.Model):
+  VISION_TRANSFORMER = 'ViT'
+  INCEPTION_V3 = 'IV3'
+  RESNET_V2_50 = 'RN2'
+  MOBILENET_V2 = 'MN2'
+  MOBILENET_V3 = 'MN3'
+  CLASSIFICATION_MODEL_CHOICES = [
+    (VISION_TRANSFORMER, 'Vision Transformer'),
+    (INCEPTION_V3, 'Inception V3'),
+    (RESNET_V2_50, 'ResNet V2 50'),
+    (MOBILENET_V2, 'MobileNet V2'),
+    (MOBILENET_V3, 'MobileNet V3'),
+  ]
+  TENSORFLOW_HUB_URLS = {
+    INCEPTION_V3: "https://tfhub.dev/google/imagenet/inception_v3/feature_vector/5",
+    RESNET_V2_50: "https://tfhub.dev/google/imagenet/resnet_v2_50/feature_vector/5",
+    MOBILENET_V2: "https://tfhub.dev/google/tf2-preview/mobilenet_v2/feature_vector/4",
+    MOBILENET_V3: "https://tfhub.dev/google/imagenet/mobilenet_v3_large_075_224/feature_vector/5"
+  }
+
   owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+  model_type = models.CharField(
+    max_length=3,
+    choices=CLASSIFICATION_MODEL_CHOICES,
+    default=INCEPTION_V3
+  )
   model_path = models.FileField(null=True)
 
   def path_to_dataset(self):
