@@ -6,7 +6,7 @@ from tensorflow_hub import KerasLayer
 from transformers import ViTForImageClassification
 from classify.static_image_classifier import StaticImageClassifier
 
-def classify_image(image_file, is_vision_transformer=True, classifier_path=None, path_to_dataset=None):
+def classify_image(image_file, is_vision_transformer=True, classifier_path=None, labels_list=[]):
   image = Image.open(image_file)
   image = image.resize((224, 224))
   if not is_vision_transformer:
@@ -15,11 +15,7 @@ def classify_image(image_file, is_vision_transformer=True, classifier_path=None,
     image_batch = np.expand_dims(image_array, axis=0)
     predictions = classifier_model.predict(image_batch)
     predicted_id = math.argmax(predictions, axis=-1)
-    dataset_directory = [d for d in os.listdir(path_to_dataset) if os.path.isdir(os.path.join(path_to_dataset, d))][0]
-    dataset_directory = os.path.join(path_to_dataset, dataset_directory)
-    class_names = [d for d in os.listdir(dataset_directory) if os.path.isdir(os.path.join(dataset_directory, d))]
-    predicted_label = class_names[predicted_id.numpy()[0]]
-    print(predicted_label)
+    predicted_label = labels_list[predicted_id.numpy()[0]]
     return predicted_label
   else:
     if not classifier_path:

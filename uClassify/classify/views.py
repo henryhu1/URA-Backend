@@ -9,12 +9,12 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
-from zipfile import ZipFile
 from classify.constants import CommonStrings, ErrorMessages
 from classify.forms import UploadAndTrainForm, RegistrationForm, VerifyEmailForm
 from classify.models import CustomUser, CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
 from classify.tasks import handle_model_training, handle_email_verification
 from classify.utils.image_classifying import classify_image
+from classify.utils.image_uploading import validate_image_zip, handle_saving_uploaded_zip
 from classify.utils.jwt_utils import create_access_token, create_refresh_token
 
 @ensure_csrf_cookie
@@ -36,8 +36,7 @@ def register_user(request: HttpRequest) -> JsonResponse:
 
     try:
       user = CustomUser.objects.create_user(email=email, username=username, password=password)
-      if not settings.DEBUG:
-        handle_email_verification(user)
+      handle_email_verification(user)
       login(request, user)
     except Exception:
       return JsonResponse({"error": ErrorMessages.CREATE_ACCOUNT_FAIL}, status=500)
@@ -216,22 +215,27 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   model_type = form.cleaned_data['model_type']
   dataset_zip = request.FILES.get("dataset")
   if dataset_zip is None:
-    return JsonResponse({"error": "Please provide a folder with labelled images."}, status=400)
+    return JsonResponse({"error": "Please upload a zip file."}, status=400)
+
+  if dataset_zip.size > 5 * 1024 * 1024:
+    return JsonResponse({"error": "Uploaded folder is too large. Please upload less training images."}, status=400)
 
   if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
     return JsonResponse({"error": "Vision Transformers are currently unavailable."}, status=400)
+
+  if not validate_image_zip(dataset_zip):
+    return JsonResponse({"error": "Please upload a valid folder containing only images."}, status=400)
+  # path_to_zip = '{}/{}'.format(settings.MEDIA_ROOT, zip_name)
+  # path_to_dataset = '{}/{}'.format(settings.MEDIA_ROOT, zip_name.split(".")[0])
 
   # print(dataset_zip.name)
   # print("".join(dataset_zip.name.split(".").pop()))
   # default_storage.save(zip_name, dataset_zip)
   new_model = CustomizedImageClassificationModel.objects.create(owner=requesting_user, model_type=model_type)
-  new_model.save()
 
-  # path_to_zip = '{}/{}'.format(settings.MEDIA_ROOT, zip_name)
-  # path_to_dataset = '{}/{}'.format(settings.MEDIA_ROOT, zip_name.split(".")[0])
-  with ZipFile(dataset_zip) as zObject:
-    # zObject.extractall(path_to_dataset)
-    zObject.extractall(new_model.path_to_dataset())
+  handle_saving_uploaded_zip(new_model.path_to_dataset(), dataset_zip)
+  new_model.dataset_path = new_model.path_to_dataset()
+  new_model.save()
  
   handle_model_training(requesting_user, new_model, training_size)
   # task_id = training_task_celery.task_id
@@ -268,7 +272,7 @@ def customized_classifier(request: HttpRequest) -> JsonResponse:
     image_file,
     customized_classifier.model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER,
     customized_classifier.model_path,
-    customized_classifier.path_to_dataset()
+    customized_classifier.labels_list
   )
   return JsonResponse({"prediction": result})
 

@@ -1,10 +1,15 @@
 from celery import shared_task
 from django.conf import settings
+from django.core.files import File
+from django.core.files.storage import default_storage
 from django.core.mail import send_mail
 from classify.models import CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
 from classify.utils.ai_model_training import get_pretrained_model, get_dataset, get_trainer, get_training_and_validation_datasets, get_hub_model
+from zipfile import ZipFile
 import random
 import os
+import shutil
+import tempfile
 
 @shared_task
 def send_verification_email(user_email, code):
@@ -34,12 +39,13 @@ def send_finished_model_training_email(user_email):
     fail_silently=False
   )
 
-@shared_task
-def train_and_save_model(user_id, model_id, model_type, training_size):
+def train_and_save_model(user_id, model_id, training_size):
   model = CustomizedImageClassificationModel.objects.get(pk=model_id)
+  model_type = model.model_type
   path_to_dataset = model.path_to_dataset()
   dataset_split = 0.1 if training_size is None else training_size
   if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
+    return ''
     ds = get_dataset(path_to_dataset, dataset_split)
     labels = ds['train'].features['label'].names
     pretrained_model = get_pretrained_model(labels)
@@ -51,26 +57,36 @@ def train_and_save_model(user_id, model_id, model_type, training_size):
     model.save()
     return trainer_results
   else:
-    dataset_directory = [d for d in os.listdir(path_to_dataset) if os.path.isdir(os.path.join(path_to_dataset, d))][0]
-    dataset_directory = os.path.join(path_to_dataset, dataset_directory)
+    temp_dataset_directory = tempfile.mkdtemp()
+    with ZipFile(path_to_dataset, 'r') as zip_ref:
+      zip_ref.extractall(temp_dataset_directory)
+    dataset_directory = [d for d in os.listdir(temp_dataset_directory) if os.path.isdir(os.path.join(temp_dataset_directory, d))][0]
+    dataset_directory = os.path.join(temp_dataset_directory, dataset_directory)
     ds = get_training_and_validation_datasets(dataset_directory, dataset_split)
     train_ds = ds[0]
     val_ds = ds[1]
     class_names = [d for d in os.listdir(dataset_directory) if os.path.isdir(os.path.join(dataset_directory, d))]
+    model.labels_list = class_names
     pretrained_model = get_hub_model(CustomizedImageClassificationModel.TENSORFLOW_HUB_URLS[model_type], len(class_names))
     history = pretrained_model.fit(
       train_ds,
       validation_data=val_ds,
       epochs=10
     )
-    model_path = '{}/{}/{}'.format(settings.MEDIA_ROOT, user_id, "model.keras")
-    pretrained_model.save(model_path)
-    model.model_path = model_path
+    shutil.rmtree(temp_dataset_directory)
+    temp_model_dir = tempfile.mkdtemp()
+    temp_model_path = '{}/{}'.format(temp_model_dir, 'model.keras')
+    pretrained_model.save(temp_model_path)
+    with open(temp_model_path, 'rb') as f:
+      default_storage.save(model.path_to_model(), File(f))
+    model.model_path = model.path_to_model()
     model.save()
+    shutil.rmtree(temp_model_dir)
 
 def handle_model_training(user, model, training_size):
-  res = train_and_save_model.apply_async((user.id, model.id, model.model_type, training_size), link=send_finished_model_training_email.si(user.email))
+  # res = train_and_save_model.apply_async((user.id, model.id, training_size), link=send_finished_model_training_email.si(user.email))
+  train_and_save_model(user.id, model.id, training_size)
 
-  training_task = TrainingModelTask.objects.create(owner=user, model=model, task_id=res.task_id)
-  training_task.save()
-  return res.task_id
+  # training_task = TrainingModelTask.objects.create(owner=user, model=model, task_id=res.task_id)
+  # return res.task_id
+  return ''

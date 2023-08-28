@@ -1,3 +1,4 @@
+import os
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -38,15 +39,39 @@ class CustomizedImageClassificationModel(models.Model):
   }
 
   owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+  def __file_path(self, filename):
+    owner_id = self.owner.id
+    if not settings.PRODUCTION:
+      return os.path.join(settings.MEDIA_ROOT, 'customized_models', str(owner_id), filename)
+    else:
+      return os.path.join('customized_models', str(owner_id), filename)
+
   model_type = models.CharField(
     max_length=3,
     choices=CLASSIFICATION_MODEL_CHOICES,
     default=INCEPTION_V3
   )
-  model_path = models.FileField(null=True)
-
   def path_to_dataset(self):
-    return '{}/{}/{}'.format(settings.MEDIA_ROOT, self.owner.id, "dataset")
+    return self.__file_path('dataset')
+
+  def path_to_model(self):
+    if self.model_type == self.VISION_TRANSFORMER:
+      return self.__file_path('model')
+    else:
+      return self.__file_path('model.keras')
+  model_path = models.FileField(null=True)
+  dataset_path = models.FileField(null=True)
+
+  labels_list = models.JSONField(null=True, default=list)
+
+  def delete(self, *args, **kwargs):
+    if self.dataset_path:
+      storage, path = self.dataset_path.storage, self.dataset_path.path
+      storage.delete(path)
+    if self.model_path:
+      storage, path = self.model_path.storage, self.model_path.path
+      storage.delete(path)
+    super().delete(*args, **kwargs)
 
 class TrainingModelTask(models.Model):
   owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
