@@ -7,6 +7,7 @@ from classify.models import CustomizedImageClassificationModel, EmailVerificatio
 from classify.utils.ai_model_training import get_pretrained_model, get_dataset, get_trainer, get_training_and_validation_datasets, get_hub_model
 from zipfile import ZipFile
 import random
+import boto3
 import os
 import shutil
 import tempfile
@@ -69,8 +70,18 @@ def train_and_save_model(user_id, model_id, training_size):
     return trainer_results
   else:
     temp_dataset_directory = tempfile.mkdtemp()
-    with ZipFile(path_to_dataset, 'r') as zip_ref:
-      zip_ref.extractall(temp_dataset_directory)
+    if settings.PRODUCTION:
+      temp_zip_path = os.path.join(temp_dataset_directory, 'temp.zip')
+      s3 = boto3.client('s3')
+      bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+      file_key = settings.AWS_LOCATION + '/' + path_to_dataset
+      s3.download_file(bucket_name, file_key, temp_zip_path)
+      with ZipFile(temp_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(temp_dataset_directory)
+      os.remove(temp_zip_path)
+    else:
+      with ZipFile(path_to_dataset, 'r') as zip_ref:
+        zip_ref.extractall(temp_dataset_directory)
     dataset_directory = [d for d in os.listdir(temp_dataset_directory) if os.path.isdir(os.path.join(temp_dataset_directory, d))][0]
     dataset_directory = os.path.join(temp_dataset_directory, dataset_directory)
     ds = get_training_and_validation_datasets(dataset_directory, dataset_split)

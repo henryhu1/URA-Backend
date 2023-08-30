@@ -39,7 +39,6 @@ if PRODUCTION:
         'CacheControl': 'max-age=86400',
     }
     AWS_S3_REGION_NAME = 'us-east-2'
-    AWS_DEFAULT_ACL = 'public-read'
     AWS_QUERYSTRING_AUTH = False
     AWS_LOCATION = 'staticfiles'
     AWS_DEFAULT_ACL = None

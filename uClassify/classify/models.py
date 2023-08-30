@@ -65,12 +65,20 @@ class CustomizedImageClassificationModel(models.Model):
   labels_list = models.JSONField(null=True, default=list)
 
   def delete(self, *args, **kwargs):
-    if self.dataset_path:
-      storage, path = self.dataset_path.storage, self.dataset_path.path
-      storage.delete(path)
-    if self.model_path:
-      storage, path = self.model_path.storage, self.model_path.path
-      storage.delete(path)
+    if settings.PRODUCTION:
+      if self.dataset_path:
+        storage, name = self.dataset_path.storage, self.dataset_path.name
+        storage.delete(name)
+      if self.model_path:
+        storage, name = self.model_path.storage, self.model_path.name
+        storage.delete(name)
+    else:
+      if self.dataset_path:
+        storage, path = self.dataset_path.storage, self.dataset_path.path
+        storage.delete(path)
+      if self.model_path:
+        storage, path = self.model_path.storage, self.model_path.path
+        storage.delete(path)
     super().delete(*args, **kwargs)
 
 class TrainingModelTask(models.Model):

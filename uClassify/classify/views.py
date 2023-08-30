@@ -247,7 +247,7 @@ def customized_classifier(request: HttpRequest) -> JsonResponse:
   result = classify_image(
     image_file,
     customized_classifier.model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER,
-    customized_classifier.model_path,
+    customized_classifier.path_to_model(),
     customized_classifier.labels_list
   )
   return JsonResponse({"prediction": result})
