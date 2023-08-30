@@ -45,11 +45,12 @@ def get_training_and_validation_datasets(path_to_dataset, dataset_split):
     batch_size=BATCH_SIZE,
   )
   #TODO normalization util
+  labels_list = ds[0].class_names
   ds[0] = ds[0].map(lambda x, y: (NORMALIZATION(x), y))
   ds[1] = ds[1].map(lambda x, y: (NORMALIZATION(x), y))
   # train_ds = train_ds.cache().prefetech(buffer_size=AUTOTUNE)
   # val_ds = val_ds.cache().prefetech(buffer_size=AUTOTUNE)
-  return ds
+  return labels_list, ds
 
 def get_pretrained_model(labels):
   return ViTForImageClassification.from_pretrained(

@@ -84,12 +84,11 @@ def train_and_save_model(user_id, model_id, training_size):
         zip_ref.extractall(temp_dataset_directory)
     dataset_directory = [d for d in os.listdir(temp_dataset_directory) if os.path.isdir(os.path.join(temp_dataset_directory, d))][0]
     dataset_directory = os.path.join(temp_dataset_directory, dataset_directory)
-    ds = get_training_and_validation_datasets(dataset_directory, dataset_split)
+    labels_list, ds = get_training_and_validation_datasets(dataset_directory, dataset_split)
     train_ds = ds[0]
     val_ds = ds[1]
-    class_names = [d for d in os.listdir(dataset_directory) if os.path.isdir(os.path.join(dataset_directory, d))]
-    model.labels_list = class_names
-    pretrained_model = get_hub_model(CustomizedImageClassificationModel.TENSORFLOW_HUB_URLS[model_type], len(class_names))
+    model.labels_list = labels_list
+    pretrained_model = get_hub_model(CustomizedImageClassificationModel.TENSORFLOW_HUB_URLS[model_type], len(labels_list))
     history = pretrained_model.fit(
       train_ds,
       validation_data=val_ds,
