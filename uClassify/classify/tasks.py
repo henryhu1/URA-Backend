@@ -95,7 +95,7 @@ def train_and_save_model(user_id, model_id, training_size):
     shutil.rmtree(temp_model_dir)
 
 def handle_model_training(user, model, training_size):
-  res = train_and_save_model.apply_async((user.id, model.id, model.model_type, training_size), link=send_finished_model_training_email.si(user.email))
+  res = train_and_save_model.apply_async((user.id, model.id, training_size), link=send_finished_model_training_email.si(user.email))
 
   training_task = TrainingModelTask.objects.create(owner=user, model=model, task_id=res.task_id)
   training_task.save()
