@@ -184,7 +184,7 @@ def single(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"error": ErrorMessages.PROVIDE_IMAGE})
 
   result = classify_image(image_file)
-  return JsonResponse(result)
+  return JsonResponse({"prediction": result})
 
 @login_required
 @api_view(['POST'])
