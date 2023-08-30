@@ -25,7 +25,7 @@ def handle_email_verification(user):
   if not settings.DEBUG:
     code = ''.join(random.choices('0123456789', k=6))
     EmailVerification.objects.create(user=user, verification_code=code)
-    send_verification_email(user.email)
+    send_verification_email.delay(user.email, code)
   else:
     EmailVerification.objects.create(user=user, is_verified=True)
 
@@ -39,6 +39,7 @@ def send_finished_model_training_email(user_email):
     fail_silently=False
   )
 
+@shared_task
 def train_and_save_model(user_id, model_id, training_size):
   model = CustomizedImageClassificationModel.objects.get(pk=model_id)
   model_type = model.model_type
@@ -84,9 +85,8 @@ def train_and_save_model(user_id, model_id, training_size):
     shutil.rmtree(temp_model_dir)
 
 def handle_model_training(user, model, training_size):
-  # res = train_and_save_model.apply_async((user.id, model.id, training_size), link=send_finished_model_training_email.si(user.email))
-  train_and_save_model(user.id, model.id, training_size)
+  res = train_and_save_model.apply_async((user.id, model.id, model.model_type, training_size), link=send_finished_model_training_email.si(user.email))
 
-  # training_task = TrainingModelTask.objects.create(owner=user, model=model, task_id=res.task_id)
-  # return res.task_id
-  return ''
+  training_task = TrainingModelTask.objects.create(owner=user, model=model, task_id=res.task_id)
+  training_task.save()
+  return res.task_id
