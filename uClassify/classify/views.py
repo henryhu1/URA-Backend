@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from classify.constants import CommonStrings, ErrorMessages
 from classify.forms import UploadAndTrainForm, RegistrationForm, VerifyEmailForm
 from classify.models import CustomUser, CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
-from classify.tasks import handle_model_training, handle_email_verification
+from classify.tasks import handle_model_training, handle_email_verification, handle_resend_email_verification
 from classify.utils.image_classifying import classify_image
 from classify.utils.image_uploading import validate_image_zip, handle_saving_uploaded_zip
 from classify.utils.jwt_utils import create_access_token, create_refresh_token
@@ -58,9 +58,15 @@ def resend_email_verification(request: HttpRequest) -> JsonResponse:
   user_email = requesting_user.user_email
   if not user_email:
     return JsonResponse({'error': 'No email found in session.'}, status=400)
+  try:
+    email_ver = EmailVerification.objects.get(user=requesting_user)
+    handle_resend_email_verification(user_email, email_ver)
+  except EmailVerification.DoesNotExist:
+    return JsonResponse({"error": ErrorMessages.VERIFY_ACCOUNT_FAIL}, status=400)
 
-  #TODO send another verification email
+  return JsonResponse({"status": CommonStrings.SUCCESS})
 
+@login_required
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
@@ -71,7 +77,7 @@ def verify_email(request: HttpRequest) -> JsonResponse:
   form = VerifyEmailForm(request.POST)
   if form.is_valid():
     requesting_user = request.user
-    if isinstance(requesting_user, AnonymousUser):
+    if not requesting_user.is_authenticated:
       return JsonResponse({'error': 'No user found in session.'}, status=400)
 
     user_email = requesting_user.user_email

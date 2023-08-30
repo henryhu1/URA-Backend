@@ -29,6 +29,16 @@ def handle_email_verification(user):
   else:
     EmailVerification.objects.create(user=user, is_verified=True)
 
+def handle_resend_email_verification(user_email, email_ver: EmailVerification):
+  if not settings.DEBUG:
+    code = ''.join(random.choices('0123456789', k=6))
+    email_ver.verification_code = code
+    email_ver.save()
+    send_verification_email.delay(user_email, code)
+  else:
+    email_ver.is_verified=True
+    email_ver.save()
+
 @shared_task
 def send_finished_model_training_email(user_email):
   send_mail(
