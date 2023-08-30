@@ -45,9 +45,13 @@ if PRODUCTION:
 
     STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles/')
-    STATICFILES_DIRS = [os.path.join(BASE_DIR, 'staticfiles/')]
+    MODEL_CACHE_DIR = os.path.join(BASE_DIR, 'model_cache/')
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+    # SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 else:
     # Local settings for development
     # Static files (CSS, JavaScript, Images)
@@ -66,7 +70,7 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.str('ALLOWED_HOSTS').split(',')
 
 
 # Application definition
@@ -123,14 +127,12 @@ WSGI_APPLICATION = 'uClassify.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage' # TODO env var for S3 in prod
+        'ENGINE': env('DB_ENGINE'),
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
 
@@ -171,9 +173,17 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'classify.CustomUser'
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'DELETE',
+    'OPTIONS',
 ]
+CORS_ALLOW_HEADERS = [
+    'enctype',
+    'authorization',
+]
+CORS_ALLOWED_ORIGINS = env.str('CORS_ALLOWED_ORIGINS').split(',')
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
