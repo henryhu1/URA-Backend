@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
 from classify.models import CustomUser, CustomizedImageClassificationModel
 
 class UploadAndTrainForm(forms.Form):
@@ -18,5 +19,5 @@ class RegistrationForm(forms.ModelForm):
     model = CustomUser
     fields = ['email', 'username', 'password']
 
-class VerifyEmailForm(forms.Form):
-  code = forms.CharField(max_length=6)
+class AuthenticateUserForm(AuthenticationForm):
+  code = forms.CharField(max_length=6, required=False)

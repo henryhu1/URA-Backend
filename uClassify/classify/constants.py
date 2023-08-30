@@ -1,5 +1,5 @@
 class ErrorMessages:
-  CREATE_ACCOUNT_FAIL = "A server error occurred. Please check that the email and password are valid."
+  CREATE_ACCOUNT_FAIL = "A server error occurred. Please check that the fields are valid."
   INCORRECT_VERIFICATION_CODE = "Incorrect code."
   INVALID_FORM = "Invalid form."
   PROVIDE_IMAGE = "Please provide image file."

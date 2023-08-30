@@ -8,7 +8,6 @@ urlpatterns = [
     path("delete_custom_model/", views.delete_custom_model, name="delete_custom_model"),
     path("register_user/", views.register_user, name="register_user"),
     path("resend_email_verification/", views.resend_email_verification, name="resend_email_verification"),
-    path("verify_email/", views.verify_email, name="verify_email"),
     path("authenticate_user/", views.authenticate_user, name="authenticate_user"),
     path("my_account/", views.my_account, name="my_account"),
     path("logout/", views.logout_user, name="logout"),

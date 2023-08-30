@@ -1,8 +1,5 @@
 from celery.result import AsyncResult
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import login, logout
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -10,7 +7,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from classify.constants import CommonStrings, ErrorMessages
-from classify.forms import UploadAndTrainForm, RegistrationForm, VerifyEmailForm
+from classify.forms import UploadAndTrainForm, RegistrationForm, AuthenticateUserForm
 from classify.models import CustomUser, CustomizedImageClassificationModel, EmailVerification, TrainingModelTask
 from classify.tasks import handle_model_training, handle_email_verification, handle_resend_email_verification
 from classify.utils.image_classifying import classify_image
@@ -46,7 +43,6 @@ def register_user(request: HttpRequest) -> JsonResponse:
   else:
     return JsonResponse({"error": ErrorMessages.INVALID_FORM}, status=400)
 
-@login_required
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
@@ -54,54 +50,23 @@ def resend_email_verification(request: HttpRequest) -> JsonResponse:
   if request.method != "POST":
     return JsonResponse({"error": ErrorMessages.ONLY_POST}, status=405)
 
-  requesting_user = request.user
-  user_email = requesting_user.user_email
-  if not user_email:
-    return JsonResponse({'error': 'No email found in session.'}, status=400)
+  request_username = request.POST.get('username')
   try:
-    email_ver = EmailVerification.objects.get(user=requesting_user)
+    existing_user = CustomUser.objects.filter(username=request_username)
+    if not existing_user.exists():
+      return JsonResponse({"error": f"User with the username {request_username} not found"}, status=404)
+    
+    user = existing_user.first()
+    user_email = user.email
+    if not user_email:
+      return JsonResponse({'error': 'No email found.'}, status=404)
+
+    email_ver = EmailVerification.objects.get(user=user)
     handle_resend_email_verification(user_email, email_ver)
   except EmailVerification.DoesNotExist:
     return JsonResponse({"error": ErrorMessages.VERIFY_ACCOUNT_FAIL}, status=400)
 
   return JsonResponse({"status": CommonStrings.SUCCESS})
-
-@login_required
-@api_view(['POST'])
-@authentication_classes([])
-@permission_classes([])
-def verify_email(request: HttpRequest) -> JsonResponse:
-  if request.method != "POST":
-    return JsonResponse({"error": ErrorMessages.ONLY_POST}, status=405)
-
-  form = VerifyEmailForm(request.POST)
-  if form.is_valid():
-    requesting_user = request.user
-    if not requesting_user.is_authenticated:
-      return JsonResponse({'error': 'No user found in session.'}, status=400)
-
-    user_email = requesting_user.user_email
-    if not user_email:
-      return JsonResponse({'error': 'No email found in session.'}, status=400)
-
-    code = form.cleaned_data['code']
-    try:
-      email_ver = EmailVerification.objects.get(user=requesting_user)
-      if code == email_ver.verification_code:
-        email_ver.is_verified = True
-        email_ver.save()
-        refresh_token = create_refresh_token(requesting_user)
-        access_token = create_access_token(refresh_token)
-        return JsonResponse({"access_token": str(access_token), "refresh_token": str(refresh_token)})
-      else:
-        return JsonResponse({"error": ErrorMessages.INCORRECT_VERIFICATION_CODE}, status=500)
-    except CustomUser.DoesNotExist:
-      return JsonResponse({"error": ErrorMessages.VERIFY_ACCOUNT_FAIL}, status=400)
-    except EmailVerification.DoesNotExist:
-      return JsonResponse({"error": ErrorMessages.VERIFY_ACCOUNT_FAIL}, status=400)
-
-  else:
-    return JsonResponse({"error": ErrorMessages.INVALID_FORM}, status=400)
 
 @api_view(['POST'])
 @authentication_classes([])
@@ -115,23 +80,28 @@ def authenticate_user(request: HttpRequest) -> JsonResponse:
     if request.user.username != login_attempt_username:
       request.session.flush()
 
-  form = AuthenticationForm(request, data=request.POST)
+  form = AuthenticateUserForm(request, data=request.POST)
   if form.is_valid():
     user = form.get_user()
     login(request, user)
 
     try:
       email_ver = EmailVerification.objects.get(user=user)
-      if email_ver.is_verified:
-        refresh_token = create_refresh_token(user)
-        access_token = create_access_token(refresh_token)
-        return JsonResponse({"is_verified": email_ver.is_verified, "access_token": str(access_token), "refresh_token": str(refresh_token)})
-      else:
-        return JsonResponse({"is_verified": email_ver.is_verified})
+      if not email_ver.is_verified:
+        code = form.cleaned_data['code']
+        if code == email_ver.verification_code:
+          email_ver.is_verified = True
+          email_ver.save()
+        else:
+          return JsonResponse({"is_verified": email_ver.is_verified})
     except CustomUser.DoesNotExist:
       return JsonResponse({"error": "User not found"}, status=404)
     except EmailVerification.DoesNotExist:
       return JsonResponse({"error": "Email verification record not found"}, status=404)
+
+    refresh_token = create_refresh_token(user)
+    access_token = create_access_token(refresh_token)
+    return JsonResponse({"is_verified": email_ver.is_verified, "access_token": str(access_token), "refresh_token": str(refresh_token)})
 
   else:
     return JsonResponse({"error": ErrorMessages.INVALID_FORM}, status=400)
