@@ -42,6 +42,7 @@ if PRODUCTION:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_QUERYSTRING_AUTH = False
     AWS_LOCATION = 'staticfiles'
+    AWS_DEFAULT_ACL = None
 
     STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles/')
