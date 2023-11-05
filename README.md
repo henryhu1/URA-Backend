@@ -1,7 +1,9 @@
 # URA-Backend
-Backend for image classification tool using **Django**, **Celery** and **RabbitMQ**
+Backend for image classification tool using **Django**, **Celery** and **RabbitMQ**.
 
 Email huhenry50@gmail.com for any questions.
+
+To interact with the server, make sure the [frontend](https://github.com/henryhu1/URA-Frontend) is running as well.
 
 <details open>
 <summary>Table of Contents</summary>
@@ -41,7 +43,7 @@ For the curious, details are in [Dockerfile](Dockerfile) and [docker-compose.yml
 ### Without Docker
 If you do not wish to use the Docker image, this section provides instructions on how to run the server manually.
 
-*Note: this section still uses Docker for RabbitMQ. You can follow [the below RabbitMQ setup](#rabbitmq) or set up RabbitMQ locally without the RabbitMQ Docker Hub image.*
+*Note: this section still uses Docker for RabbitMQ. You can follow [the below RabbitMQ setup](#rabbitmq) or set up RabbitMQ locally without a RabbitMQ image.*
 
 #### Environment Variables
 In your local repo, create a `.env` file and place these contents inside:
@@ -93,7 +95,7 @@ $ python manage.py runserver
 
 #### RabbitMQ
 By default, the RabbitMQ image is used by celery.
-You can pull any image RabbitMQ image you like from Docker Hub.
+You can pull any [RabbitMQ image](https://hub.docker.com/_/rabbitmq) you like from Docker Hub.
 
 ex.
 ```shell
@@ -121,4 +123,4 @@ AWS powers the server hosted on my domain, utilizing EC2, RDS and S3.
 - code cleanup
 - improve error handling
 - (prod) provide classification model downloads
-- 
+ 
