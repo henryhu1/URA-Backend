@@ -56,20 +56,22 @@ def train_and_save_model(user_id, model_id, training_size):
   model_type = model.model_type
   path_to_dataset = model.path_to_dataset()
   dataset_split = 0.1 if training_size is None else training_size
+  temp_dataset_directory = tempfile.mkdtemp()
   if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
-    return ''
-    ds = get_dataset(path_to_dataset, dataset_split)
+    # return ''
+    with ZipFile(path_to_dataset, 'r') as zip_ref:
+      zip_ref.extractall(temp_dataset_directory)
+    ds = get_dataset(temp_dataset_directory, dataset_split)
     labels = ds['train'].features['label'].names
     pretrained_model = get_pretrained_model(labels)
     trainer = get_trainer(pretrained_model, ds)
     trainer_results = trainer.train()
-    model_path = '{}/{}/{}'.format(settings.MEDIA_ROOT, user_id, "model")
-    trainer.save_model(model_path)
-    model.model_path = model_path
+    # model_path = '{}/{}/{}/{}'.format(settings.MEDIA_ROOT, "customized_models", user_id, "model")
+    trainer.save_model(model.path_to_model())
+    model.model_path = model.path_to_model()
     model.save()
     return trainer_results
   else:
-    temp_dataset_directory = tempfile.mkdtemp()
     if settings.PRODUCTION:
       temp_zip_path = os.path.join(temp_dataset_directory, 'temp.zip')
       s3 = boto3.client('s3')
@@ -94,7 +96,6 @@ def train_and_save_model(user_id, model_id, training_size):
       validation_data=val_ds,
       epochs=10
     )
-    shutil.rmtree(temp_dataset_directory)
     temp_model_dir = tempfile.mkdtemp()
     temp_model_path = '{}/{}'.format(temp_model_dir, 'model.keras')
     pretrained_model.save(temp_model_path)
@@ -103,6 +104,7 @@ def train_and_save_model(user_id, model_id, training_size):
     model.model_path = model.path_to_model()
     model.save()
     shutil.rmtree(temp_model_dir)
+  shutil.rmtree(temp_dataset_directory)
 
 def handle_model_training(user, model, training_size):
   res = train_and_save_model.apply_async((user.id, model.id, training_size), link=send_finished_model_training_email.si(user.email))

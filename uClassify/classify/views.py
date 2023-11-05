@@ -196,8 +196,8 @@ def upload_and_train(request: HttpRequest) -> JsonResponse:
   if dataset_zip.size > 5 * 1024 * 1024:
     return JsonResponse({"error": "Uploaded folder is too large. Please upload less training images."}, status=400)
 
-  if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
-    return JsonResponse({"error": "Vision Transformers are currently unavailable."}, status=400)
+  # if model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
+  #   return JsonResponse({"error": "Vision Transformers are currently unavailable."}, status=400)
 
   if not validate_image_zip(dataset_zip):
     return JsonResponse({"error": "Please upload a valid folder containing only images."}, status=400)
@@ -244,6 +244,7 @@ def customized_classifier(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"error": "You currently have a model in training."}, status=400)
 
   customized_classifier = has_customized_model.first()
+  print(customized_classifier.path_to_model())
   result = classify_image(
     image_file,
     customized_classifier.model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER,

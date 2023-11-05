@@ -1,4 +1,5 @@
 import os
+import shutil
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -78,7 +79,10 @@ class CustomizedImageClassificationModel(models.Model):
         storage.delete(path)
       if self.model_path:
         storage, path = self.model_path.storage, self.model_path.path
-        storage.delete(path)
+        if self.model_type == CustomizedImageClassificationModel.VISION_TRANSFORMER:
+          shutil.rmtree(path)
+        else:
+          storage.delete(path)
     super().delete(*args, **kwargs)
 
 class TrainingModelTask(models.Model):
