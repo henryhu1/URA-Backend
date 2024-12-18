@@ -3,7 +3,7 @@ Backend for image classification tool using **Django**, **Celery** and **RabbitM
 
 Email huhenry50@gmail.com for any questions.
 
-To interact with the server, make sure the [frontend](https://github.com/henryhu1/URA-Frontend) is running as well.
+To interact with the server, make sure the [frontend][frontend-url] is running as well.
 
 <details open>
 <summary>Table of Contents</summary>
@@ -95,7 +95,7 @@ $ python manage.py runserver
 
 #### RabbitMQ
 By default, the RabbitMQ image is used by celery.
-You can pull any [RabbitMQ image](https://hub.docker.com/_/rabbitmq) you like from Docker Hub.
+You can pull any [RabbitMQ image][rabbitmq-dockerhub-url] you like from Docker Hub.
 
 ex.
 ```shell
@@ -124,3 +124,5 @@ AWS powers the server hosted on my domain, utilizing EC2, RDS and S3.
 - improve error handling
 - (prod) provide classification model downloads
  
+[frontend-url]: https://github.com/henryhu1/URA-Frontend
+[rabbitmq-dockerhub-url]: https://hub.docker.com/_/rabbitmq
